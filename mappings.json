@@ -1,0 +1,227 @@
+{
+  "mappings": {
+    "properties": {
+      "join_field": {
+        "type": "join",
+        "relations": {
+          "instance": "etext"
+        }
+      },
+      "first_import_date": {"type": "date", "doc_values": true },
+      "last_update_date": {"type": "date", "doc_values": true },
+      "person_dates": {"type": "keyword" },
+      "replaced_by": { "type": "keyword" },
+      "w_id": { "type": "keyword" },
+      "wa_id": { "type": "keyword" },
+      "mw_id": { "type": "keyword" },
+      "i_id": { "type": "keyword" },
+      "ve_id": { "type": "keyword" },
+      "ie_id": { "type": "keyword" },
+      "source": { "type": "keyword" },
+      "i_version": { "type": "keyword" },
+      "ocfl_version": { "type": "keyword" },
+      "volume_number": { "type": "short" },
+      "db_score": { "type": "half_float" },
+      "db_score_in_type": { "type": "half_float" },
+      "pop_score": { "type": "half_float" },
+      "pop_score_in_type": { "type": "half_float" },
+      "type":   { "type": "keyword" },
+      "partType":   { "type": "keyword" },
+      "author": { "type": "keyword" },
+      "cstart": { "type": "integer" },
+      "cend": { "type": "integer" },
+      "status": { "type": "keyword" },
+      "nb_pages": { "type": "integer" },
+      "complete": { "type": "boolean" },
+      "prefLabel_bo": { 
+        "type": "text", 
+        "analyzer": "tibetan-lenient", 
+        "index_options": "offsets",
+        "fields": {
+          "tibetan-phonetic": {
+            "type": "text",
+            "analyzer": "tibetan-phonetic",
+            "index_options": "offsets"
+          },
+          "exact": {
+            "type": "text",
+            "analyzer": "tibetan-exact",
+            "index_options": "offsets"
+          }
+        }
+      },
+      "altLabel_bo": { 
+        "type": "text", 
+        "analyzer": "tibetan-lenient", 
+        "index_options": "offsets",
+        "fields": {
+          "tibetan-phonetic": {
+            "type": "text",
+            "analyzer": "tibetan-phonetic",
+            "index_options": "offsets"
+          },
+          "exact": {
+            "type": "text",
+            "analyzer": "tibetan-exact",
+            "index_options": "offsets"
+          }
+        }
+      },
+      "chunks": {
+        "type": "nested",
+        "properties": {
+          "cstart": { "type": "integer" },
+          "cend": { "type": "integer" },
+          "text_bo": { 
+            "type": "text",
+            "analyzer": "tibetan-lenient",
+            "index_options": "offsets"
+          }
+        }
+      },
+      "pages": {
+        "type": "nested",
+        "properties": {
+          "cstart": { "type": "integer" },
+          "cend": { "type": "integer" },
+          "pnum": { "type": "short" },
+          "pname": { "type": "keyword" }
+        }
+      },
+      "segments": {
+        "type": "nested",
+        "properties": {
+          "cstart": { "type": "integer" },
+          "cend": { "type": "integer" },
+          "title_bo": { 
+            "type": "text", 
+            "analyzer": "tibetan-lenient", 
+            "index_options": "offsets",
+            "fields": {
+              "tibetan-phonetic": {
+                "type": "text",
+                "analyzer": "tibetan-phonetic",
+                "index_options": "offsets"
+              },
+              "exact": {
+                "type": "text",
+                "analyzer": "tibetan-exact",
+                "index_options": "offsets"
+              }
+            }
+          },
+          "author_name_bo": { 
+            "type": "text", 
+            "analyzer": "tibetan-lenient", 
+            "index_options": "offsets",
+            "fields": {
+              "tibetan-phonetic": {
+                "type": "text",
+                "analyzer": "tibetan-phonetic",
+                "index_options": "offsets"
+              },
+              "exact": {
+                "type": "text",
+                "analyzer": "tibetan-exact",
+                "index_options": "offsets"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "index": {
+      "max_inner_result_window": 10000,
+      "similarity": {
+        "default": {
+          "type": "BM25",
+          "k1": 0.0
+        }
+      }
+    },
+    "analysis": {
+      "normalizer": {
+        "id_normalizer": {
+          "type": "custom",
+          "char_filter": [],
+          "filter": [ "lowercase" ]
+        }
+      },
+      "analyzer": {
+        "tibetan-lenient": {
+          "tokenizer": "tibetan-default",
+          "filter": [ "tibetan-lenient", "tibetan-synonyms", "tibetan_stop_words_filter" ],
+          "char_filter": [ "tibetan-lenient" ]
+        },
+        "tibetan-exact": {
+          "tokenizer": "tibetan-exact",
+          "char_filter": [ "tibetan-exact" ]
+        },
+        "tibetan-phonetic": {
+          "tokenizer": "tibetan-default",
+          "filter": [ "tibetan-lenient", "tibetan-for-tibetan-phonetic" ],
+          "char_filter": [ "tibetan-lenient" ]
+        },
+        "tibetan-for-english-phonetic": {
+          "tokenizer": "tibetan-default",
+          "filter": [ "tibetan-for-english-phonetic" ],
+          "char_filter": [ "tibetan-lenient" ]
+        },
+        "tibetan-english-phonetic": {
+          "tokenizer": "tibetan-english-phonetic",
+          "char_filter": [ "tibetan-english-phonetic" ]
+        }
+      },
+      "filter": {
+        "tibetan-lenient": {
+          "type": "tibetan",
+          "remove_affixes": true,
+          "normalize_paba": true
+        },
+        "tibetan_stop_words_filter": {
+          "type": "stop",
+          "ignore_case": false,
+          "stopwords": [ "འི", "འིས", "ཡིས" ]
+        },
+        "tibetan-synonyms": {
+          "type": "synonym_graph",
+          "synonyms_path": "tibetan-synonyms.txt"
+        },
+        "tibetan-for-english-phonetic": {
+          "type": "tibetan-for-english-phonetic"
+        },
+        "tibetan-for-tibetan-phonetic": {
+          "type": "tibetan-for-tibetan-phonetic"
+        }
+      },
+      "char_filter": {
+        "tibetan-lenient": {
+          "type": "tibetan",
+          "lenient": true
+        },
+        "tibetan-exact": {
+          "type": "tibetan",
+          "lenient": false,
+          "keep_shad": true
+        },
+        "tibetan-english-phonetic": {
+          "type": "tibetan-english-phonetic"
+        }
+      },
+      "tokenizer" : {
+        "tibetan-default" : {
+          "type" : "tibetan",
+          "split_non_standard" : true,
+          "keep_shad" : false
+        },
+        "tibetan-exact" : {
+          "type" : "tibetan",
+          "split_non_standard" : false,
+          "keep_shad" : true
+        }
+      }
+    }
+  }
+}
