@@ -12,7 +12,7 @@
       "id": { "type": "keyword" },
       "action": { "type": "keyword" },
       "correlation_id": { "type": "keyword" },
-      "diff": { "type": "flattened" }
+      "diff": { "type": "flat_object" }
     }
   }
 }
