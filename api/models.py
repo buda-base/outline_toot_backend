@@ -56,16 +56,12 @@ class Segment(BaseModel):
     segment_type: SegmentType = SegmentType.TEXT
     parent_segment: str | None = None
     title_bo: str | None = None
-    title_in_text: list[str] = Field(default_factory=list)
     author_name_bo: str | None = None
-    author_name_in_text: list[str] = Field(default_factory=list)
 
 
 class PersonBase(BaseModel):
-    bdrc_id: str | None = None
     pref_label_bo: str | None = None
     alt_label_bo: str | None = None
-    person_names: list[str] = Field(default_factory=list)
     dates: str | None = None
 
 
@@ -78,11 +74,9 @@ class PersonOutput(PersonBase):
 
 
 class WorkBase(BaseModel):
-    bdrc_id: str | None = None
     pref_label_bo: str | None = None
     alt_label_bo: str | None = None
     author: str | None = None
-    bibliographical_title: str | None = None
     versions: list[str] = Field(default_factory=list)
 
 
