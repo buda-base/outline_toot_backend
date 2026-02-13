@@ -10,3 +10,5 @@ ruff
 pyright
 ty
 orjson>=3.9.0
+rdflib>=7.0.0
+requests>=2.31.0

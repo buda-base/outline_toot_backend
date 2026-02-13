@@ -8,6 +8,8 @@ from pathlib import Path
 
 import boto3
 import pyarrow.parquet as pq
+import requests
+from rdflib import Graph, Namespace
 
 from api.config import Config
 from api.models import Chunk, DocumentType, PageEntry, VolumeStatus
@@ -16,8 +18,70 @@ from api.services.opensearch import _index_document, _volume_doc_id
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1000
+BDRC_RESOURCE_URL = "https://purl.bdrc.io/resource/"
+
+# Define RDF namespaces
+BDO = Namespace("http://purl.bdrc.io/ontology/core/")
+BDR = Namespace("http://purl.bdrc.io/resource/")
 
 _TIB_CHUNK_PATTERN = re.compile(r"([སའངགདནབམརལཏ]ོ[་༌]?[།-༔][^ཀ-ཬ]*|(།།|[༎-༒])[^ཀ-ཬ༠-༩]*[།-༔][^ཀ-ཬ༠-༩]*)")
+
+
+def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
+    """
+    Fetch volume metadata from BDRC TTL resource.
+    
+    Args:
+        i_id: Image instance ID (e.g., "I1CZ35")
+    
+    Returns:
+        Dict with volume metadata including volume_number
+    """
+    url = f"{BDRC_RESOURCE_URL}{i_id}.ttl"
+    
+    try:
+        logger.info("Fetching volume metadata from %s", url)
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        # Parse TTL content
+        graph = Graph()
+        graph.parse(data=response.text, format="turtle")
+        
+        # Build the subject URI for this resource
+        subject = BDR[i_id]
+        
+        # Extract metadata
+        metadata: dict[str, int | str | None] = {
+            "volume_number": None,
+            "volume_pages_tbrc_intro": None,
+            "volume_pages_total": None,
+        }
+        
+        # Get volume number
+        for _, _, vol_num in graph.triples((subject, BDO.volumeNumber, None)):
+            metadata["volume_number"] = int(vol_num)
+            break
+        
+        # Get bibliographic note (optional)
+        for _, _, note in graph.triples((subject, BDO.volumePagesTbrcIntro, None)):
+            metadata["volume_pages_tbrc_intro"] = int(note)
+            break
+        
+        # Get total pages (optional)
+        for _, _, pages in graph.triples((subject, BDO.volumePagesTotal, None)):
+            metadata["volume_pages_total"] = int(pages)
+            break
+        
+        logger.info("Fetched metadata for %s: %s", i_id, metadata)
+        return metadata
+        
+    except requests.RequestException as e:
+        logger.warning("Failed to fetch volume metadata from %s: %s", url, e)
+        return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
+    except Exception as e:
+        logger.exception("Error parsing volume metadata for %s: %s", i_id, e)
+        return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
 
 
 def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
@@ -147,6 +211,9 @@ def _import_parquet(
     # Build search chunks
     chunks = _build_chunks(full_text)
 
+    # Fetch volume metadata from BDRC
+    metadata = fetch_volume_metadata(i_id)
+
     # Assemble and index the volume document
     now = datetime.now(UTC).isoformat()
     doc_id = _volume_doc_id(w_id, i_id)
@@ -158,6 +225,7 @@ def _import_parquet(
         "i_version": i_version,
         "source": source,
         "status": VolumeStatus.NEW.value,
+        "volume_number": metadata["volume_number"],
         "nb_pages": len(pages),
         "pages": [p.model_dump() for p in pages],
         "segments": [],
