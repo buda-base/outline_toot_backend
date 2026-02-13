@@ -44,7 +44,7 @@ class Chunk(BaseModel):
 class PageEntry(BaseModel):
     cstart: int
     cend: int
-    pnum: int
+    pnum: int | None = None
     pname: str | None = None
     img_link: str | None = None
 

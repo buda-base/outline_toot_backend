@@ -1,11 +1,15 @@
 """Import OCR results from parquet files stored in S3 into OpenSearch volumes."""
 
+import gzip
+import hashlib
+import json
 import logging
 import re
 from datetime import UTC, datetime
 from io import BytesIO
 
 import boto3
+import botocore.exceptions
 import pyarrow.parquet as pq
 import requests
 from rdflib import Graph, Namespace
@@ -18,12 +22,119 @@ logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 1000
 BDRC_RESOURCE_URL = "https://purl.bdrc.io/resource/"
+S3_ARCHIVE_BUCKET = "archive.tbrc.org"
 
 # Define RDF namespaces
 BDO = Namespace("http://purl.bdrc.io/ontology/core/")
 BDR = Namespace("http://purl.bdrc.io/resource/")
 
 _TIB_CHUNK_PATTERN = re.compile(r"([སའངགདནབམརལཏ]ོ[་༌]?[།-༔][^ཀ-ཬ]*|(།།|[༎-༒])[^ཀ-ཬ༠-༩]*[།-༔][^ཀ-ཬ༠-༩]*)")
+
+
+def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
+    """
+    Get the S3 prefix (~folder) in which the volume will be present.
+    
+    Inspired from https://github.com/buda-base/buda-iiif-presentation/blob/master/src/main/java/
+    io/bdrc/iiif/presentation/ImageInfoListService.java#L73
+    
+    Example:
+       - w_id=W22084, i_id=I0886
+       - result = "Works/60/W22084/images/W22084-0886/"
+    where:
+       - 60 is the first two characters of the md5 of the string W22084
+       - 0886 is:
+          * the image group ID without the initial "I" if the image group ID is in the form I\\d\\d\\d\\d
+          * or else the full image group ID (including the "I")
+    """
+    md5 = hashlib.md5(w_id.encode())
+    two = md5.hexdigest()[:2]
+
+    pre, rest = i_id[0], i_id[1:]
+    if pre == "I" and rest.isdigit() and len(rest) == 4:
+        suffix = rest
+    else:
+        suffix = i_id
+
+    return f"Works/{two}/{w_id}/images/{w_id}-{suffix}/"
+
+
+def get_s3_blob(s3_key: str) -> BytesIO | None:
+    """Download a blob from S3 archive bucket into memory."""
+    s3 = boto3.client("s3")
+    buffer = BytesIO()
+    try:
+        s3.download_fileobj(S3_ARCHIVE_BUCKET, s3_key, buffer)
+        return buffer
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            return None
+        raise
+
+
+def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None:
+    """
+    Get the image list from S3. The format is:
+    [
+      {
+         "filename": "I0TTBBC0077_0020001.jpg",
+         "width": 2650,
+         "height": 1731
+      }
+    ]
+    
+    Excludes entries where filename ends with .json or where width/height is absent or null.
+    Page number of filename X is the index of the entry in the list that has filename = X, starting at 1.
+    """
+    s3_key = get_s3_folder_prefix(w_id, i_id) + "dimensions.json"
+    logger.info("Fetching dimensions from s3://%s/%s", S3_ARCHIVE_BUCKET, s3_key)
+    
+    blob = get_s3_blob(s3_key)
+    if blob is None:
+        logger.warning("dimensions.json not found at %s", s3_key)
+        return None
+    
+    try:
+        blob.seek(0)
+        b = blob.read()
+        ub = gzip.decompress(b)
+        s = ub.decode("utf8")
+        data = json.loads(s)
+        
+        # Filter out invalid entries
+        filtered_data = [
+            entry
+            for entry in data
+            if not entry.get("filename", "").endswith(".json")
+            and entry.get("width") is not None
+            and entry.get("height") is not None
+        ]
+        
+        logger.info("Loaded %d valid image entries from dimensions.json", len(filtered_data))
+        return filtered_data
+        
+    except Exception as e:
+        logger.exception("Error parsing dimensions.json: %s", e)
+        return None
+
+
+def build_filename_to_pnum_map(w_id: str, i_id: str) -> dict[str, int]:
+    """
+    Build a mapping from filename to page number based on dimensions.json.
+    
+    Returns empty dict if dimensions.json cannot be fetched or parsed.
+    """
+    image_list = get_image_list_s3(w_id, i_id)
+    if image_list is None:
+        return {}
+    
+    filename_to_pnum = {}
+    for idx, entry in enumerate(image_list, start=1):
+        filename = entry.get("filename")
+        if filename:
+            filename_to_pnum[filename] = idx
+    
+    return filename_to_pnum
 
 
 def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
@@ -182,15 +293,23 @@ def _import_parquet(
     pages_raw.sort(key=lambda x: x[0])
     logger.info("Processing %d pages (%d skipped due to errors)", len(pages_raw), skipped)
 
+    # Build filename to page number mapping from dimensions.json
+    filename_to_pnum = build_filename_to_pnum_map(w_id, i_id)
+
     # Build continuous text and page entries
     full_text_parts: list[str] = []
     pages: list[PageEntry] = []
     offset = 0
 
-    for pnum, (fname, lines) in enumerate(pages_raw, start=1):
+    for fname, lines in pages_raw:
         page_text = "\n".join(lines)
         cstart = offset
         cend = offset + len(page_text)
+
+        # Get correct pnum from dimensions.json, fallback to None if not found
+        pnum = filename_to_pnum.get(fname)
+        if pnum is None:
+            logger.warning("Page number not found for filename: %s", fname)
 
         pages.append(
             PageEntry(
