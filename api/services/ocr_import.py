@@ -232,7 +232,7 @@ def _s3_key(w_id: str, i_id: str, i_version: str, source: str) -> str:
     """Build the S3 object key for an OCR parquet file."""
     source_in_fname = source
     if source == "ocrv1-ws-ldv1":
-        source_in_fname = "orcv1"
+        source_in_fname = "ocrv1"
     filename = f"{w_id}-{i_id}-{i_version}_{source_in_fname}.parquet"
     return f"{source}/{w_id}/{i_id}/{i_version}/{filename}"
 
