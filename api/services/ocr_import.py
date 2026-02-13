@@ -2,9 +2,8 @@
 
 import logging
 import re
-import tempfile
 from datetime import UTC, datetime
-from pathlib import Path
+from io import BytesIO
 
 import boto3
 import pyarrow.parquet as pq
@@ -120,18 +119,21 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
 
 def _s3_key(w_id: str, i_id: str, i_version: str, source: str) -> str:
     """Build the S3 object key for an OCR parquet file."""
-    filename = f"{w_id}-{i_id}-{i_version}_{source}.parquet"
-    return f"{source}-ws-ldv1/{w_id}/{i_id}/{i_version}/{filename}"
+    source_in_fname = source
+    if source == "ocrv1-ws-ldv1":
+        source_in_fname = "orcv1"
+    filename = f"{w_id}-{i_id}-{i_version}_{source_in_fname}.parquet"
+    return f"{source}/{w_id}/{i_id}/{i_version}/{filename}"
 
 
-def _download_from_s3(s3_key: str) -> Path:
-    """Download a parquet file from S3 to a local temp file."""
+def _download_from_s3(s3_key: str) -> BytesIO:
+    """Download a parquet file from S3 directly into memory."""
     s3 = boto3.client("s3")
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".parquet") as tmp:
-        tmp_path = tmp.name
+    buffer = BytesIO()
     logger.info("Downloading s3://%s/%s", Config.S3_OCR_BUCKET, s3_key)
-    s3.download_file(Config.S3_OCR_BUCKET, s3_key, tmp_path)
-    return Path(tmp_path)
+    s3.download_fileobj(Config.S3_OCR_BUCKET, s3_key, buffer)
+    buffer.seek(0)  # Reset buffer position to beginning
+    return buffer
 
 
 def import_ocr_from_s3(
@@ -146,11 +148,8 @@ def import_ocr_from_s3(
     Returns the document ID of the created volume.
     """
     key = _s3_key(w_id, i_id, i_version, source)
-    local_path = _download_from_s3(key)
-    try:
-        return _import_parquet(w_id, i_id, i_version, source, local_path)
-    finally:
-        local_path.unlink(missing_ok=True)
+    parquet_buffer = _download_from_s3(key)
+    return _import_parquet(w_id, i_id, i_version, source, parquet_buffer)
 
 
 def _import_parquet(
@@ -158,15 +157,15 @@ def _import_parquet(
     i_id: str,
     i_version: str,
     source: str,
-    parquet_path: Path,
+    parquet_data: BytesIO,
 ) -> str:
     """
-    Read a local parquet OCR file and index the resulting volume into OpenSearch.
+    Read a parquet OCR file from memory and index the resulting volume into OpenSearch.
 
     Returns the document ID of the created volume.
     """
-    table = pq.read_table(parquet_path)
-    logger.info("Read %d rows from %s", table.num_rows, parquet_path)
+    table = pq.read_table(parquet_data)
+    logger.info("Read %d rows from parquet file", table.num_rows)
 
     # Collect successful pages: (filename, line_texts)
     pages_raw: list[tuple[str, list[str]]] = []
