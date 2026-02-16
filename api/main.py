@@ -8,7 +8,6 @@ import logging
 import sys
 from typing import Any
 
-import orjson
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse

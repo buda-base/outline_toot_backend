@@ -34,8 +34,13 @@ def _import_ocr_volume_task(
 @router.post("/ocr-volume")
 async def import_ocr_volume(body: ImportOCRRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
     """Queue an OCR volume import — downloads parquet from S3 and indexes it."""
-    logger.info("Queuing import request: %s/%s (version=%s, etext_source=%s)", 
-               body.w_id, body.i_id, body.i_version, body.etext_source)
+    logger.info(
+        "Queuing import request: %s/%s (version=%s, etext_source=%s)",
+        body.w_id,
+        body.i_id,
+        body.i_version,
+        body.etext_source,
+    )
     background_tasks.add_task(
         _import_ocr_volume_task,
         w_id=body.w_id,

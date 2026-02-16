@@ -10,22 +10,22 @@ load_dotenv()
 
 class OrjsonSerializer(JSONSerializer):
     """Custom JSON serializer using orjson for better performance.
-    
+
     orjson handles Unicode (including Tibetan) natively without escaping,
     which is more efficient and readable than ASCII-escaped JSON.
     """
 
-    def dumps(self, data):
+    def dumps(self, data: dict) -> str:
         """Serialize data to JSON using orjson.
-        
+
         Note: orjson does not escape non-ASCII characters by default,
         making it ideal for Tibetan text content.
         """
         # orjson.dumps returns bytes, opensearch-py expects str
         return orjson.dumps(data).decode("utf-8")
 
-    def loads(self, data):
-        """Deserialize JSON data using orjson."""
+    def loads(self, data: str | bytes) -> dict:
+        """Deserialize JSON data using orjson.ß"""
         # Handle both str and bytes input
         if isinstance(data, str):
             data = data.encode("utf-8")

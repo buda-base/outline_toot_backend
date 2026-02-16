@@ -219,7 +219,7 @@ def _expand_ewts_literals(ewts_list: list[str]) -> list[str]:
     return out
 
 
-def _ewts_to_unicode_patterns(ewts_list: list[str], *, suffix: bool = False) -> str | None:
+def _ewts_to_unicode_patterns(ewts_list: list[str], *, suffix: bool = False) -> re.Pattern[str] | None:
     """Convert EWTS literal strings to a single regex pattern in Unicode."""
     expanded = _expand_ewts_literals(ewts_list)
     unicode_parts = []

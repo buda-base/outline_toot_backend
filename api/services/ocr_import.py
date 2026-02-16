@@ -34,10 +34,10 @@ _TIB_CHUNK_PATTERN = re.compile(r"([སའངགདནབམརལཏ]ོ[་༌
 def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
     """
     Get the S3 prefix (~folder) in which the volume will be present.
-    
+
     Inspired from https://github.com/buda-base/buda-iiif-presentation/blob/master/src/main/java/
     io/bdrc/iiif/presentation/ImageInfoListService.java#L73
-    
+
     Example:
        - w_id=W22084, i_id=I0886
        - result = "Works/60/W22084/images/W22084-0886/"
@@ -47,14 +47,11 @@ def get_s3_folder_prefix(w_id: str, i_id: str) -> str:
           * the image group ID without the initial "I" if the image group ID is in the form I\\d\\d\\d\\d
           * or else the full image group ID (including the "I")
     """
-    md5 = hashlib.md5(w_id.encode())
+    md5 = hashlib.md5(w_id.encode())  # noqa: S324
     two = md5.hexdigest()[:2]
 
     pre, rest = i_id[0], i_id[1:]
-    if pre == "I" and rest.isdigit() and len(rest) == 4:
-        suffix = rest
-    else:
-        suffix = i_id
+    suffix = rest if pre == "I" and rest.isdigit() and len(rest) == 4 else i_id
 
     return f"Works/{two}/{w_id}/images/{w_id}-{suffix}/"
 
@@ -65,11 +62,12 @@ def get_s3_blob(s3_key: str) -> BytesIO | None:
     buffer = BytesIO()
     try:
         s3.download_fileobj(S3_ARCHIVE_BUCKET, s3_key, buffer)
-        return buffer
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "404":
             return None
         raise
+    else:
+        return buffer
 
 
 def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None:
@@ -82,25 +80,25 @@ def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None
          "height": 1731
       }
     ]
-    
+
     Excludes entries where filename ends with .json or where width/height is absent or null.
     Page number of filename X is the index of the entry in the list that has filename = X, starting at 1.
     """
     s3_key = get_s3_folder_prefix(w_id, i_id) + "dimensions.json"
     logger.info("Fetching dimensions from s3://%s/%s", S3_ARCHIVE_BUCKET, s3_key)
-    
+
     blob = get_s3_blob(s3_key)
     if blob is None:
         logger.warning("dimensions.json not found at %s", s3_key)
         return None
-    
+
     try:
         blob.seek(0)
         b = blob.read()
         ub = gzip.decompress(b)
         s = ub.decode("utf8")
         data = json.loads(s)
-        
+
         # Filter out invalid entries
         filtered_data = [
             entry
@@ -109,89 +107,92 @@ def get_image_list_s3(w_id: str, i_id: str) -> list[dict[str, str | int]] | None
             and entry.get("width") is not None
             and entry.get("height") is not None
         ]
-        
+
         logger.info("Loaded %d valid image entries from dimensions.json", len(filtered_data))
-        return filtered_data
-        
-    except Exception as e:
-        logger.exception("Error parsing dimensions.json: %s", e)
+
+    except Exception:
+        logger.exception("Error parsing dimensions.json: %s")
         return None
+    else:
+        return filtered_data
 
 
 def build_filename_to_pnum_map(w_id: str, i_id: str) -> dict[str, int]:
     """
     Build a mapping from filename to page number based on dimensions.json.
-    
+
     Returns empty dict if dimensions.json cannot be fetched or parsed.
     """
     image_list = get_image_list_s3(w_id, i_id)
     if image_list is None:
         return {}
-    
+
     filename_to_pnum = {}
     for idx, entry in enumerate(image_list, start=1):
         filename = entry.get("filename")
         if filename:
             filename_to_pnum[filename] = idx
-    
+
     return filename_to_pnum
 
 
 def fetch_volume_metadata(i_id: str) -> dict[str, int | str | None]:
     """
     Fetch volume metadata from BDRC TTL resource.
-    
+
     Args:
         i_id: Image instance ID (e.g., "I1CZ35")
-    
+
     Returns:
         Dict with volume metadata including volume_number
     """
     url = f"{BDRC_RESOURCE_URL}{i_id}.ttl"
-    
+
     try:
         logger.info("Fetching volume metadata from %s", url)
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        
+
         # Parse TTL content
         graph = Graph()
         graph.parse(data=response.text, format="turtle")
-        
+
         # Build the subject URI for this resource
         subject = BDR[i_id]
-        
+
         # Extract metadata
         metadata: dict[str, int | str | None] = {
             "volume_number": None,
             "volume_pages_tbrc_intro": None,
             "volume_pages_total": None,
         }
-        
+
         # Get volume number
         for _, _, vol_num in graph.triples((subject, BDO.volumeNumber, None)):
             metadata["volume_number"] = int(vol_num)
             break
-        
+
         # Get bibliographic note (optional)
         for _, _, note in graph.triples((subject, BDO.volumePagesTbrcIntro, None)):
             metadata["volume_pages_tbrc_intro"] = int(note)
             break
-        
+
         # Get total pages (optional)
         for _, _, pages in graph.triples((subject, BDO.volumePagesTotal, None)):
             metadata["volume_pages_total"] = int(pages)
             break
-        
+
         logger.info("Fetched metadata for %s: %s", i_id, metadata)
-        return metadata
-        
+
     except requests.RequestException as e:
         logger.warning("Failed to fetch volume metadata from %s: %s", url, e)
         return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
-    except Exception as e:
-        logger.exception("Error parsing volume metadata for %s: %s", i_id, e)
+    except Exception:
+        logger.exception("Error parsing volume metadata for %s", i_id)
         return {"volume_number": None, "volume_pages_tbrc_intro": None, "volume_pages_total": None}
+
+    else:
+        return metadata
 
 
 def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
@@ -205,7 +206,7 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
     chunks: list[Chunk] = []
     start = 0
     break_index = 0
-    
+
     while text_len - start > chunk_size:
         target = start + chunk_size
         max_end = min(text_len, start + 2 * chunk_size)
@@ -222,22 +223,18 @@ def _build_chunks(text: str, chunk_size: int = CHUNK_SIZE) -> list[Chunk]:
             # Search up to max_end for better break points
             newline = text.rfind("\n", start + 1, max_end)
             space = text.rfind(" ", start + 1, max_end)
-            
+
             # Use whichever is closer to target
             best_break = max(newline, space)
-            
-            if best_break != -1:
-                end = best_break + 1  # Include the newline/space in the chunk
-            else:
-                # No good break point found, force break at max_end
-                end = max_end
+
+            end = best_break + 1 if best_break != -1 else max_end
 
         chunks.append(Chunk(cstart=start, cend=end, text_bo=text[start:end]))
         start = end
 
     if start < text_len:
         chunks.append(Chunk(cstart=start, cend=text_len, text_bo=text[start:text_len]))
-    
+
     return chunks
 
 
@@ -347,7 +344,7 @@ def _import_parquet(
     # Check if document already exists to preserve certain fields
     doc_id = _volume_doc_id(w_id, i_id, i_version, etext_source)
     existing_doc = _get_document(doc_id)
-    
+
     # Assemble and index the volume document
     now = datetime.now(UTC).isoformat()
 
@@ -356,8 +353,12 @@ def _import_parquet(
         first_imported_at = existing_doc.get("first_imported_at", now)
         existing_segments = existing_doc.get("segments", [])
         existing_status = existing_doc.get("status", VolumeStatus.NEW.value)
-        logger.info("Reimporting existing volume %s - preserving %d segments and status=%s", 
-                   doc_id, len(existing_segments), existing_status)
+        logger.info(
+            "Reimporting existing volume %s - preserving %d segments and status=%s",
+            doc_id,
+            len(existing_segments),
+            existing_status,
+        )
     else:
         first_imported_at = now
         existing_segments = []
@@ -384,5 +385,5 @@ def _import_parquet(
     }
 
     _index_document(doc_id, body)
-    
+
     return doc_id
