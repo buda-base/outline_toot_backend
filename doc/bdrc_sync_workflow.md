@@ -28,10 +28,6 @@ Else the script will only list the records that were changed between the commit 
 
 When importing a record, the record import function will be passed an argument that is a path to a `.trig` file, relative to the root of a git repo. The path can be assumed to be in the form `{hash}/{id}.trig`.
 
-For **3** the logic is different for works / persons and outlines:
-
-#### Importing works / persons
-
 A work or person record is relatively straightforward to import, with the following conventions:
 - if a record does not have `bda:{id} adm:status bda:StatusReleased`
    * if it's not in the db yet, ignore it and don't import it
@@ -43,9 +39,3 @@ A work or person record is relatively straightforward to import, with the follow
    * import objects of `bdr:{id} skos:altLabel` in the same way
 
 also from https://eroux.fr/entityScores.ttl.gz import the object of `bdr:{id} tmp:entityScore` as field `db_score`.
-
-#### Import outlines
-
-For outlines, ignore all outlines that do not have `bda:{id} adm:status bda:StatusReleased`.
-
-Then we need to find all the `(w_id, i_id)` and `(ie_id, ve_id)` covered by the outline so we can import it.
