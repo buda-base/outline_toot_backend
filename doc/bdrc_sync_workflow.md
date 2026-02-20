@@ -38,4 +38,6 @@ A work or person record is relatively straightforward to import, with the follow
    * import object of `bdr:{id} skos:prefLabel` with `lang=bo-x-ewts` as field `prefLabel_bo` after conversion from EWTS to Unicode with pyewts, and object of `bdr:{id} skos:prefLabel` with `lang=bo` directly
    * import objects of `bdr:{id} skos:altLabel` in the same way
 
+To find the author of a work, look at all objects of `bdr:{wa_id} :creator ...`, these are objects with two properties: `:agent` (the object of which is the BDRC person), and `:role` (the object of which is a [role](https://github.com/buda-base/owl-schema/blob/master/roles/creators.ttl)). Authors are persons with the following roles: `bdr:R0ER0011`, `bdr:R0ER0014` (if that role is present, ignore all other roles for authors), `bdr:R0ER0019`, `bdr:R0ER0025`. Import the BDRC person id (`P...`) in the `author` field of the db. A possible later improvement (depending on the queries) will be to also add the person's `skos:prefLabel` / `skos:altLabel` as an `author_names_bo` field.
+
 also from https://eroux.fr/entityScores.ttl.gz import the object of `bdr:{id} tmp:entityScore` as field `db_score`.
