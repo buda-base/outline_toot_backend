@@ -11,9 +11,9 @@ from io import BytesIO
 import boto3
 import botocore.exceptions
 import pyarrow.parquet as pq
-import requests
 from rdflib import Graph, Namespace
 
+import requests
 from api.config import Config
 from api.models import Chunk, DocumentType, PageEntry, VolumeStatus
 from api.services.os_client import get_document, index_document
@@ -175,17 +175,17 @@ def fetch_volume_metadata(vol_id: str) -> dict[str, int | str | None]:
 
         # Get volume number
         for _, _, vol_num in graph.triples((subject, BDO.volumeNumber, None)):
-            metadata["volume_number"] = int(vol_num)
+            metadata["volume_number"] = int(str(vol_num))
             break
 
         # Get TBRC intro pages (optional)
         for _, _, intro_pages in graph.triples((subject, BDO.volumePagesTbrcIntro, None)):
-            metadata["volume_pages_tbrc_intro"] = int(intro_pages)
+            metadata["volume_pages_tbrc_intro"] = int(str(intro_pages))
             break
 
         # Get total pages (optional)
         for _, _, total_pages in graph.triples((subject, BDO.volumePagesTotal, None)):
-            metadata["volume_pages_total"] = int(total_pages)
+            metadata["volume_pages_total"] = int(str(total_pages))
             break
 
         # Get wa_id (Work Analytic ID)
@@ -357,7 +357,7 @@ def _import_parquet(
 
     # Fetch volume metadata from BDRC to get intro pages count
     metadata = fetch_volume_metadata(vol_id)
-    intro_pages = metadata.get("volume_pages_tbrc_intro") or 0
+    intro_pages = int(metadata.get("volume_pages_tbrc_intro") or 0)
 
     if intro_pages > 0:
         logger.info("Skipping first %d intro pages", intro_pages)

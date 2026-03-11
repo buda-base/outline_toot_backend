@@ -11,11 +11,31 @@ from api.models import (
     RecordStatus,
     WorkInput,
     WorkOutput,
-    generate_id,
 )
 from api.services.audit import log_event
 from api.services.os_client import extract_hits, get_document, index_document, search, update_document
 from query_builder import build_search_query
+
+
+def _next_sequential_id(prefix: str, start: int) -> str:
+    """Generate the next sequential ID by querying OpenSearch for the current max."""
+
+    body: dict[str, Any] = {
+        "query": {"prefix": {"_id": prefix}},
+        "size": 0,
+        "aggs": {"all_ids": {"terms": {"field": "_id", "size": 10000}}},
+    }
+    response = search(body, size=0)
+
+    max_num = start - 1
+    buckets = response.get("aggregations", {}).get("all_ids", {}).get("buckets", [])
+    for bucket in buckets:
+        suffix = bucket["key"].removeprefix(prefix)
+        if suffix.isdigit():
+            num = int(suffix)
+            max_num = max(max_num, num)
+
+    return f"{prefix}{max_num + 1}"
 
 
 def _build_curation(modified_by: str, edit_version: int = 1) -> dict[str, Any]:
@@ -112,7 +132,7 @@ def _get_record(doc_id: str) -> dict[str, Any] | None:
 
 def create_work(data: WorkInput) -> WorkOutput:
     """Create a new local work record with a generated ID."""
-    work_id = generate_id(prefix="WA")
+    work_id = _next_sequential_id(prefix="WA1BC", start=10)
     return WorkOutput.model_validate(_create_record(data, DocumentType.WORK, work_id))
 
 
@@ -160,7 +180,7 @@ def merge_work(work_id: str, canonical_id: str, modified_by: str) -> WorkOutput:
 
 def create_person(data: PersonInput) -> PersonOutput:
     """Create a new local person record with a generated ID."""
-    person_id = generate_id(prefix="P")
+    person_id = _next_sequential_id(prefix="P1BC", start=1)
     return PersonOutput.model_validate(_create_record(data, DocumentType.PERSON, person_id))
 
 

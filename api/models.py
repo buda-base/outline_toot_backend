@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import secrets
-import string
 from datetime import datetime
 from enum import StrEnum
 
@@ -39,14 +37,6 @@ class RecordStatus(StrEnum):
 class Origin(StrEnum):
     IMPORTED = "imported"
     LOCAL = "local"
-
-
-_ID_ALPHABET = string.ascii_uppercase + string.digits
-
-
-def generate_id(prefix: str, length: int = 7) -> str:
-    suffix = "".join(secrets.choice(_ID_ALPHABET) for _ in range(length))
-    return f"{prefix}{suffix}"
 
 
 class ParsedRecord(BaseModel):
