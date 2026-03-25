@@ -10,6 +10,7 @@ from api.models import (
     VolumeOutput,
     VolumeStatus,
 )
+from api.services.catalog_propagation import propagate_active_for_reviewed_volume_segments
 from api.services.os_client import extract_hits, get_document, search, update_document
 
 
@@ -75,6 +76,11 @@ def update_volume_status(volume_id: str, new_status: VolumeStatus) -> VolumeOutp
         "last_updated_at": datetime.now(UTC).isoformat(),
     }
     update_document(volume_id, partial)
+    if new_status == VolumeStatus.REVIEWED:
+        propagate_active_for_reviewed_volume_segments(
+            existing.get("segments") or [],
+            volume_id=volume_id,
+        )
     return VolumeOutput.model_validate({**existing, **partial, "id": volume_id})
 
 
@@ -238,5 +244,8 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
     }
 
     update_document(volume_id, update_data)
+
+    if data.status == VolumeStatus.REVIEWED:
+        propagate_active_for_reviewed_volume_segments(segments, volume_id=volume_id)
 
     return volume_id

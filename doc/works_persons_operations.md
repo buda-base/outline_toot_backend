@@ -29,7 +29,7 @@ Each `work` / `person` document contains:
     "edit_version": 0 # iterative: 1, 2, 3, etc.
   },
 
-  "record_status": "active", # or "duplicate" or "withdrawn"
+  "record_status": "active", # imported / promoted; API-created locals start as "new"; "duplicate" or "withdrawn"
   "canonical_id": null, # if duplicate, the id of the canonical document
 
   "import": { # import bookkeeping
@@ -213,7 +213,8 @@ POST /bec/_update/work:WA777
 
 **Query behavior**
 
-* Search results should normally filter `record_status:"active"`
+* Default list/search for works and persons filters `record_status:"active"` (excludes `new`, `duplicate`, `withdrawn`).
+* Records created via the API start as `record_status:"new"` until promoted (e.g. when an annotation volume is saved or patched to `reviewed`, the backend sets referenced works and their authors to `active` where applicable).
 * When you fetch a doc and see `record_status:"duplicate"`, follow `canonical_id`
 
 ---

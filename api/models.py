@@ -41,6 +41,7 @@ class DocumentType(StrEnum):
 class RecordStatus(StrEnum):
     """Catalog record lifecycle - from BDRC or for Works/Persons."""
 
+    NEW = "new"
     ACTIVE = "active"
     DUPLICATE = "duplicate"
     WITHDRAWN = "withdrawn"

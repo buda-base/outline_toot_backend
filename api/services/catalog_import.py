@@ -97,7 +97,7 @@ def bulk_upsert_from_import(records: list[ImportRecord], now: str | None = None)
     For each record:
     - If curation.modified == false (or doc is new): overwrite source-owned fields.
     - If curation.modified == true: update only source_meta.* + import.*, skip content fields.
-    - New docs get origin="imported", record_status="active", default curation block.
+    - New docs get origin="imported", record_status="active" (catalog-ready; API-created locals use "new"), default curation block.
 
     Returns:
         Counts: {"updated": N, "created": N, "skipped": N}

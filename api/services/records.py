@@ -91,7 +91,7 @@ def _create_record(
         **data.model_dump(exclude={"modified_by"}),
         "type": doc_type.value,
         "origin": Origin.LOCAL.value,
-        "record_status": RecordStatus.ACTIVE.value,
+        "record_status": RecordStatus.NEW.value,
         "curation": _build_curation(data.modified_by, edit_version=1),
     }
     index_document(doc_id, body)
