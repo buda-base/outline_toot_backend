@@ -15,7 +15,7 @@ from rdflib import Graph, Namespace
 
 import requests
 from api.config import Config
-from api.models import Chunk, DocumentType, PageEntry, VolumeStatus
+from api.models import Chunk, DocumentType, PageEntry, VolumeMatchingStatus, VolumeStatus
 from api.services.os_client import get_document, index_document
 from api.services.volumes import _volume_doc_id
 
@@ -415,6 +415,7 @@ def _import_parquet(
         first_imported_at = existing_doc.get("first_imported_at", now)
         existing_segments = existing_doc.get("segments", [])
         existing_status = existing_doc.get("status", VolumeStatus.ACTIVE.value)
+        existing_status_matching = existing_doc.get("status_matching", VolumeMatchingStatus.PENDING.value)
         logger.info(
             "Reimporting existing volume %s - preserving %d segments and status=%s",
             doc_id,
@@ -425,6 +426,7 @@ def _import_parquet(
         first_imported_at = now
         existing_segments = []
         existing_status = VolumeStatus.ACTIVE.value
+        existing_status_matching = VolumeMatchingStatus.PENDING.value
         logger.info("Creating new volume %s", doc_id)
 
     body = {
@@ -435,6 +437,7 @@ def _import_parquet(
         "vol_version": vol_version,
         "etext_source": etext_source,
         "status": existing_status,
+        "status_matching": existing_status_matching,
         "volume_number": metadata["volume_number"],
         "wa_id": metadata["wa_id"],
         "mw_id": metadata["mw_id"],

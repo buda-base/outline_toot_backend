@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -9,6 +10,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class VolumeStatus(StrEnum):
     """Annotation workflow status - managed by the annotation code."""
 
+    ACTIVE = "active"
+    IN_PROGRESS = "in_progress"
+    IN_REVIEW = "in_review"
+    REVIEWED = "reviewed"
+
+
+class VolumeMatchingStatus(StrEnum):
+    """Matching-phase workflow for a volume: same stages as annotation (``VolumeStatus``) plus matching-specific values."""
+
+    PENDING = "pending"
+    READY = "ready"
     ACTIVE = "active"
     IN_PROGRESS = "in_progress"
     IN_REVIEW = "in_review"
@@ -124,6 +136,8 @@ class CurationMeta(BaseModel):
     modified_at: datetime | None = None
     modified_by: str | None = None
     edit_version: int = 0
+    status: str | None = None
+    status_matching: str | None = None
 
 
 class SourceMeta(BaseModel):
@@ -139,6 +153,7 @@ class RecordOutput(BaseModel):
     id: str
     origin: Origin | None = None
     record_status: RecordStatus | None = None
+    record_status_matching: str | None = None
     canonical_id: str | None = None
     curation: CurationMeta | None = None
     source_meta: SourceMeta | None = None
@@ -191,8 +206,19 @@ class VolumeBase(BaseModel):
     wa_id: str | None = None
     mw_id: str | None = None
     status: VolumeStatus = VolumeStatus.ACTIVE
+    status_matching: VolumeMatchingStatus = VolumeMatchingStatus.PENDING
     pages: list[PageEntry] = Field(default_factory=list)
     segments: list[Segment] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_status_matching_when_absent(cls, data: Any) -> Any:
+        """OpenSearch may omit ``status_matching``; treat as ``pending``."""
+        if isinstance(data, dict):
+            v = data.get("status_matching")
+            if v is None or v == "":
+                return {**data, "status_matching": VolumeMatchingStatus.PENDING.value}
+        return data
 
 
 class VolumeInput(VolumeBase):

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeOutput, VolumeStatus
+from api.models import PaginatedResponse, VolumeAnnotationInput, VolumeOutput, VolumeMatchingStatus, VolumeStatus
 from api.services.volumes import get_volume_by_doc_id, list_volumes, save_annotated_volume, update_volume_status
 
 router = APIRouter(prefix="/volumes", tags=["volumes"])
@@ -11,6 +11,7 @@ router = APIRouter(prefix="/volumes", tags=["volumes"])
 @router.get("")
 async def get_available_volumes(
     volume_status: Annotated[VolumeStatus | None, Query(alias="status")] = None,
+    status_matching: Annotated[VolumeMatchingStatus | None, Query()] = None,
     etext_source: Annotated[str | None, Query()] = None,
     rep_id: Annotated[str | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -19,6 +20,7 @@ async def get_available_volumes(
     """List volumes available for annotation, with optional filters and pagination."""
     items, total = list_volumes(
         status=volume_status.value if volume_status else None,
+        status_matching=status_matching.value if status_matching else None,
         etext_source=etext_source,
         rep_id=rep_id,
         offset=offset,

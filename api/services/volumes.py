@@ -6,6 +6,7 @@ from api.models import (
     DocumentType,
     VolumeAnnotationInput,
     VolumeInput,
+    VolumeMatchingStatus,
     VolumeOutput,
     VolumeStatus,
 )
@@ -18,6 +19,7 @@ def _volume_doc_id(rep_id: str, vol_id: str, vol_version: str, etext_source: str
 
 def list_volumes(
     status: str | None = None,
+    status_matching: str | None = None,
     etext_source: str | None = None,
     rep_id: str | None = None,
     offset: int = 0,
@@ -28,6 +30,25 @@ def list_volumes(
     ]
     if status is not None:
         filters.append({"term": {"status": status}})
+    if status_matching is not None:
+        if status_matching == VolumeMatchingStatus.PENDING.value:
+            filters.append(
+                {
+                    "bool": {
+                        "should": [
+                            {"term": {"status_matching": VolumeMatchingStatus.PENDING.value}},
+                            {
+                                "bool": {
+                                    "must_not": {"exists": {"field": "status_matching"}},
+                                }
+                            },
+                        ],
+                        "minimum_should_match": 1,
+                    }
+                }
+            )
+        else:
+            filters.append({"term": {"status_matching": status_matching}})
     if etext_source is not None:
         filters.append({"term": {"etext_source": etext_source}})
     if rep_id is not None:
@@ -198,7 +219,7 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
         segments.append(internal_seg)
 
     # Update document with new data
-    update_data = {
+    update_data: dict[str, Any] = {
         "status": data.status.value,
         "base_text": data.base_text,
         "segments": segments,
