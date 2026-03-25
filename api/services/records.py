@@ -25,11 +25,13 @@ def _catalog_list_filters(
     pref_label_bo: str | None = None,
     record_origin: Origin | None = None,
     record_status: RecordStatus | None = None,
+    author_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """OpenSearch filter clauses for work/person list and search endpoints."""
     filters: list[dict[str, Any]] = [
         {"term": {"type": doc_type.value}},
     ]
+    is_work = doc_type == DocumentType.WORK
     if record_status is not None:
         filters.append({"term": {"record_status": record_status.value}})
     else:
@@ -40,6 +42,8 @@ def _catalog_list_filters(
         filters.append({"match_phrase": {"pref_label_bo": pref_label_bo}})
     if record_origin is not None:
         filters.append({"term": {"origin": record_origin.value}})
+    if is_work and author_id is not None:
+        filters.append({"term": {"authors": author_id}})
     return filters
 
 
@@ -200,6 +204,7 @@ def list_works(
     pref_label_bo: str | None = None,
     record_origin: Origin | None = None,
     record_status: RecordStatus | None = None,
+    author_id: str | None = None,
     offset: int = 0,
     limit: int = 50,
 ) -> tuple[list[WorkWithAuthors], int]:
@@ -210,6 +215,7 @@ def list_works(
         pref_label_bo=pref_label_bo,
         record_origin=record_origin,
         record_status=record_status,
+        author_id=author_id,
     )
     body: dict[str, Any] = {
         "query": {"bool": {"filter": filters}},
@@ -229,6 +235,7 @@ def search_works(
     pref_label_bo: str | None = None,
     record_origin: Origin | None = None,
     record_status: RecordStatus | None = None,
+    author_id: str | None = None,
     size: int = 20,
 ) -> list[WorkWithAuthors]:
     type_filter = _catalog_list_filters(
@@ -237,6 +244,7 @@ def search_works(
         pref_label_bo=pref_label_bo,
         record_origin=record_origin,
         record_status=record_status,
+        author_id=author_id,
     )
     search_text_parts: list[str] = []
     if title:

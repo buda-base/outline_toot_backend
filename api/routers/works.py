@@ -23,6 +23,10 @@ async def list_work_records(
     pref_label_bo: Annotated[str | None, Query()] = None,
     record_origin: Annotated[Origin | None, Query()] = None,
     record_status: Annotated[RecordStatus | None, Query()] = None,
+    author_id: Annotated[
+        str | None,
+        Query(description="Person id (P…) — work must list this id in ``authors``."),
+    ] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> WorksPaginatedResponse:
@@ -32,6 +36,7 @@ async def list_work_records(
         pref_label_bo=pref_label_bo,
         record_origin=record_origin,
         record_status=record_status,
+        author_id=author_id,
         offset=offset,
         limit=limit,
     )
@@ -46,17 +51,18 @@ async def find_work(
     pref_label_bo: Annotated[str | None, Query()] = None,
     record_origin: Annotated[Origin | None, Query()] = None,
     record_status: Annotated[RecordStatus | None, Query()] = None,
+    author_id: Annotated[str | None, Query()] = None,
 ) -> list[WorkWithAuthors]:
     """Search works by title and/or author name, with optional catalog filters."""
     has_text = bool(title or author_name)
     has_filters = any(
-        v is not None for v in (modified_by, pref_label_bo, record_origin, record_status)
+        v is not None for v in (modified_by, pref_label_bo, record_origin, record_status, author_id)
     )
     if not has_text and not has_filters:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide at least one of: title, author_name, or a filter "
-            "(modified_by, pref_label_bo, record_origin, record_status)",
+            "(modified_by, pref_label_bo, record_origin, record_status, author_id)",
         )
     return search_works(
         title=title,
@@ -65,6 +71,7 @@ async def find_work(
         pref_label_bo=pref_label_bo,
         record_origin=record_origin,
         record_status=record_status,
+        author_id=author_id,
     )
 
 
