@@ -188,7 +188,7 @@ def save_annotated_volume(volume_id: str, data: VolumeAnnotationInput) -> str:
             "wa_id": seg.wa_id,
             "cstart": seg.cstart,
             "cend": seg.cend,
-            "part_type": seg.part_type.value,
+            "segment_type": seg.part_type.value,
             "title_bo": title_bo_list,
         }
 

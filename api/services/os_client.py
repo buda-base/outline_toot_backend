@@ -5,12 +5,18 @@ from opensearchpy.exceptions import NotFoundError as OSNotFoundError
 from api.config import index_name, opensearch_client
 
 
-def index_document(doc_id: str, body: dict[str, Any], routing: str | None = None) -> dict[str, Any]:
+def index_document(
+    doc_id: str,
+    body: dict[str, Any],
+    routing: str | None = None,
+    *,
+    refresh: bool = True,
+) -> dict[str, Any]:
     kwargs: dict[str, Any] = {
         "index": index_name,
         "id": doc_id,
         "body": body,
-        "refresh": True,
+        "refresh": refresh,
     }
     if routing is not None:
         kwargs["routing"] = routing

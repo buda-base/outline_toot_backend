@@ -80,7 +80,8 @@ class PageEntry(BaseModel):
 
 
 class Segment(BaseModel):
-    id: str | None = None
+    mw_id: str | None = None
+    wa_id: str | None = None
     cstart: int
     cend: int
     segment_type: SegmentType = SegmentType.TEXT

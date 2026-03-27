@@ -448,6 +448,6 @@ def _import_parquet(
         "last_updated_at": now,
     }
 
-    index_document(doc_id, body)
+    index_document(doc_id, body, refresh=False)
 
     return doc_id
