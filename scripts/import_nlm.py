@@ -50,7 +50,7 @@ import requests
 from api.config import Config, index_name, opensearch_client
 from api.models import SegmentType
 from api.services.ocr_import import import_ocr_from_s3
-from api.services.os_client import get_document, update_document
+from api.services.os_client import get_document, refresh_index, update_document
 from api.services.volumes import _volume_doc_id
 
 # ruff: noqa: S603, S607
@@ -793,7 +793,7 @@ def phase2_import_segments(
                 continue
 
             # Store segments on the volume document
-            update_document(doc_id, {"segments": segments})
+            update_document(doc_id, {"segments": segments}, refresh=False)
             segments_imported += 1
             logger.info(
                 "[%d/%d] ✓ Imported %d segments for %s (outline %s, mode=%s)",
@@ -807,6 +807,10 @@ def phase2_import_segments(
         except Exception:
             logger.exception("[%d/%d] Failed to process %s", i + 1, total, doc_id)
             failed += 1
+
+    if segments_imported and not dry_run:
+        logger.info("Refreshing index...")
+        refresh_index()
 
     logger.info("=" * 60)
     logger.info(

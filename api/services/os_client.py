@@ -37,13 +37,19 @@ def get_document(doc_id: str, routing: str | None = None) -> dict[str, Any] | No
         return None
 
 
-def update_document(doc_id: str, partial_body: dict[str, Any], routing: str | None = None) -> dict[str, Any]:
+def update_document(
+    doc_id: str,
+    partial_body: dict[str, Any],
+    routing: str | None = None,
+    *,
+    refresh: bool = True,
+) -> dict[str, Any]:
     """Partial update of a document (only the given fields)."""
     kwargs: dict[str, Any] = {
         "index": index_name,
         "id": doc_id,
         "body": {"doc": partial_body},
-        "refresh": True,
+        "refresh": refresh,
     }
     if routing is not None:
         kwargs["routing"] = routing
