@@ -15,6 +15,10 @@
                         "type": "text",
                         "analyzer": "tibetan-exact",
                         "index_options": "offsets"
+                    },
+                    "min_hash_lenient": {
+                        "type": "text",
+                        "analyzer": "tibetan-lenient-minhash"
                     }
                 }
             },
@@ -29,12 +33,6 @@
                 "analyzer": "tibetan-lenient"
             },
             "minhash_lsh": { "type": "keyword" },
-            "minhash_os": {
-                "type": "min_hash",
-                "analyzer": "tibetan-lenient",
-                "hash_count": 128,
-                "bucket_count": 64
-            },
             "text_length": { "type": "integer" },
             "synced_at": { "type": "date" }
         }
@@ -58,6 +56,16 @@
                 }
             },
             "analyzer": {
+                "tibetan-lenient-minhash": {
+                    "tokenizer": "tibetan-default",
+                    "filter": [
+                        "tibetan-lenient",
+                        "tibetan-synonyms",
+                        "tibetan_stop_words_filter",
+                        "tibetan_minhash_filter" 
+                    ],
+                    "char_filter": ["tibetan-lenient"]
+                },
                 "tibetan-lenient": {
                     "tokenizer": "tibetan-default",
                     "filter": [
@@ -81,6 +89,13 @@
                 }
             },
             "filter": {
+                "tibetan_minhash_filter": {
+                    "type": "min_hash",
+                    "hash_count": 128,
+                    "bucket_count": 64,
+                    "hash_set_size": 1,
+                    "with_rotation": true
+                },
                 "tibetan-lenient": {
                     "type": "tibetan",
                     "remove_affixes": true,
