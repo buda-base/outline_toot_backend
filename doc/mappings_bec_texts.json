@@ -2,8 +2,11 @@
     "mappings": {
         "properties": {
             "volume_id": { "type": "keyword" },
+            "rep_id":  { "type": "keyword" },
             "vol_id": { "type": "keyword" },
+            "vol_version": { "type": "keyword" },
             "mw_id": { "type": "keyword" },
+            "root_mw_id": { "type": "keyword" },
             "etext_source": { "type": "keyword" },
             "segment_idx": { "type": "integer" },
             "title_bo": {
@@ -15,10 +18,6 @@
                         "type": "text",
                         "analyzer": "tibetan-exact",
                         "index_options": "offsets"
-                    },
-                    "min_hash_lenient": {
-                        "type": "text",
-                        "analyzer": "tibetan-lenient-minhash"
                     }
                 }
             },
@@ -30,7 +29,13 @@
             "cend": { "type": "integer" },
             "text_bo": {
                 "type": "text",
-                "analyzer": "tibetan-lenient"
+                "analyzer": "tibetan-lenient",
+                "fields": {
+                    "min_hash_lenient": {
+                        "type": "text",
+                        "analyzer": "tibetan-lenient-minhash"
+                    }
+                }
             },
             "minhash_lsh": { "type": "keyword" },
             "text_length": { "type": "integer" },
@@ -62,6 +67,7 @@
                         "tibetan-lenient",
                         "tibetan-synonyms",
                         "tibetan_stop_words_filter",
+                        "5_shingle",
                         "tibetan_minhash_filter" 
                     ],
                     "char_filter": ["tibetan-lenient"]
@@ -91,10 +97,17 @@
             "filter": {
                 "tibetan_minhash_filter": {
                     "type": "min_hash",
-                    "hash_count": 128,
-                    "bucket_count": 64,
+                    "hash_count": 512,
+                    "bucket_count": 256,
                     "hash_set_size": 1,
                     "with_rotation": true
+                },
+                "5_shingle": {
+                  "type": "shingle",
+                  "min_shingle_size": 5,
+                  "max_shingle_size": 5,
+                  "output_unigrams": false,
+                  "filler_token": "" 
                 },
                 "tibetan-lenient": {
                     "type": "tibetan",

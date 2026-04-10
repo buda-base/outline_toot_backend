@@ -133,7 +133,7 @@ def scroll_segmented_volumes(
         body=query_body,
         size=SCROLL_SIZE,
         scroll=SCROLL_TIMEOUT,
-        _source_includes=["vol_id", "wa_id", "mw_id", "etext_source", "segments", "chunks"],
+        _source_includes=["vol_id", "vol_version", "rep_id", "wa_id", "mw_id", "etext_source", "segments", "chunks"],
     )
 
     scroll_id = response.get("_scroll_id")
@@ -176,6 +176,7 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """
     volume_id = volume["id"]
     vol_id = volume.get("vol_id", "")
+    vol_version = volume.get("vol_version", "")
     volume_wa_id = volume.get("wa_id")
     volume_mw_id = volume.get("mw_id")
     etext_source = volume.get("etext_source", "")
@@ -198,17 +199,20 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
         if len(text.strip()) < MIN_TEXT_LENGTH:
             continue
 
-        seg_wa_id = seg.get("wa_id") or volume_wa_id
-        seg_mw_id = seg.get("mw_id") or volume_mw_id
+        seg_wa_id = seg.get("wa_id")
+        seg_mw_id = seg.get("mw_id") or volume_mw_id+"_S"+str(idx)
 
         title_bo = seg.get("title_bo")
         if isinstance(title_bo, list):
             title_bo = title_bo[0] if title_bo else None
 
-        doc_id = f"{volume_id}_{idx}"
+        doc_id = seg_mw_id
         body: dict[str, Any] = {
             "volume_id": volume_id,
             "vol_id": vol_id,
+            "vol_version": vol_version,
+            "root_mw_id": volume_mw_id,
+            "rep_id": volume.get("rep_id"),
             "mw_id": seg_mw_id,
             "etext_source": etext_source,
             "segment_idx": idx,
