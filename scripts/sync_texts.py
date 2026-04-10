@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from datasketch import MinHash
-from opensearchpy.exceptions import NotFoundError as OSNotFoundError
+from opensearchpy.exceptions import ConnectionTimeout, NotFoundError as OSNotFoundError
 
 from api.config import index_name, opensearch_client
 from api.models import DocumentType, SegmentType
@@ -48,6 +48,10 @@ LSH_BANDS = 20
 LSH_ROWS = NUM_PERM // LSH_BANDS  # 6 rows per band -> ~60% Jaccard threshold
 SHINGLE_SIZE = 3
 TSHEG_PATTERN = re.compile(r"[་།]+")
+
+MAX_RETRIES = 5
+INITIAL_RETRY_DELAY = 5  # seconds
+MAX_RETRY_DELAY = 300  # 5 minutes
 
 
 def _tibetan_shingles(text: str, shingle_size: int = SHINGLE_SIZE) -> set[str]:
@@ -234,10 +238,12 @@ def build_text_docs(volume: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 def bulk_upsert(
     docs: list[tuple[str, dict[str, Any]]],
     existing_map: dict[str, dict[str, Any]],
+    force: bool = False,
 ) -> int:
     """Bulk upsert text documents into bec_texts.
 
     Preserves wa_id_orig for documents that already exist.
+    Skips documents that already exist with the same text unless force is True.
 
     Returns:
         Number of documents indexed.
@@ -246,26 +252,51 @@ def bulk_upsert(
         return 0
 
     bulk_body: list[dict[str, Any]] = []
+    to_index_count = 0
     for doc_id, body in docs:
         if doc_id in existing_map:
-            existing_wa_id_orig = existing_map[doc_id].get("wa_id_orig")
+            existing_doc = existing_map[doc_id]
+            existing_wa_id_orig = existing_doc.get("wa_id_orig")
             if existing_wa_id_orig is not None:
                 body["wa_id_orig"] = existing_wa_id_orig
 
+            # Skip if text is the same and not forced
+            if not force and existing_doc.get("text_bo") == body["text_bo"]:
+                continue
+
         bulk_body.append({"index": {"_index": TEXT_INDEX_NAME, "_id": doc_id}})
         bulk_body.append(body)
+        to_index_count += 1
 
-    response = opensearch_client.bulk(body=bulk_body, refresh=False)
+    if not bulk_body:
+        return 0
 
-    if response.get("errors"):
-        error_count = sum(1 for item in response["items"] if item.get("index", {}).get("error"))
-        logger.warning("Bulk upsert had %d errors", error_count)
-        for item in response["items"]:
-            error = item.get("index", {}).get("error")
-            if error:
-                logger.warning("  %s: %s", item["index"]["_id"], error.get("reason", error))
+    retries = 0
+    while retries <= MAX_RETRIES:
+        try:
+            response = opensearch_client.bulk(body=bulk_body, refresh=False)
 
-    return len(docs)
+            if response.get("errors"):
+                error_count = sum(1 for item in response["items"] if item.get("index", {}).get("error"))
+                logger.warning("Bulk upsert had %d errors", error_count)
+                for item in response["items"]:
+                    error = item.get("index", {}).get("error")
+                    if error:
+                        logger.warning("  %s: %s", item["index"]["_id"], error.get("reason", error))
+
+            return to_index_count
+
+        except (ConnectionTimeout, Exception) as e:
+            retries += 1
+            if retries > MAX_RETRIES:
+                logger.error("Max retries reached for bulk upsert. Failing.")
+                raise e
+
+            delay = min(INITIAL_RETRY_DELAY * (2 ** (retries - 1)), MAX_RETRY_DELAY)
+            logger.warning("Bulk upsert failed (attempt %d/%d): %s. Retrying in %ds...", retries, MAX_RETRIES, e, delay)
+            time.sleep(delay)
+
+    return 0
 
 
 def main() -> None:
@@ -274,6 +305,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Count volumes and segments without indexing",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-index even if text already exists in bec_texts",
     )
     parser.add_argument(
         "--limit",
@@ -330,7 +366,7 @@ def main() -> None:
         if len(pending_docs) >= BULK_BATCH_SIZE or i == len(volumes) - 1:
             pending_ids = [doc_id for doc_id, _ in pending_docs]
             existing_map = _get_existing_text_docs(pending_ids)
-            indexed = bulk_upsert(pending_docs, existing_map)
+            indexed = bulk_upsert(pending_docs, existing_map, force=args.force)
             total_texts += indexed
             pending_docs = []
 
