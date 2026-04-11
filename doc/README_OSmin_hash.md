@@ -97,3 +97,9 @@ To find duplicates, pass the analyzed hashes of your target document into a `ter
 * **90% Similarity (Strict - Near exact matches):** `minimum_should_match: 460`
 
 This allows you to index the document once and dynamically query it for entirely different use cases without reindexing.
+
+
+## Sources
+
+- [Lucene source code](https://github.com/apache/lucene/blob/main/lucene/analysis/common/src/java/org/apache/lucene/analysis/minhash/MinHashFilter.java#L34)
+- [OpenSearch doc](https://docs.opensearch.org/latest/analyzers/token-filters/min-hash/)
