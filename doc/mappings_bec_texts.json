@@ -97,8 +97,8 @@
             "filter": {
                 "tibetan_minhash_filter": {
                     "type": "min_hash",
-                    "hash_count": 512,
-                    "bucket_count": 256,
+                    "hash_count": 1,
+                    "bucket_count": 512,
                     "hash_set_size": 1,
                     "with_rotation": true
                 },

@@ -44,6 +44,16 @@ def clear_disk_block(index_name: str = "*") -> None:
     except Exception as e:
         logger.error("Error clearing disk block for %s: %s", index_name, e)
 
+def list_indices() -> None:
+    """List all indices with their sizes and document counts."""
+    logger.info("Fetching index statistics...")
+    try:
+        # Get indices stats in a readable format
+        indices = opensearch_client.cat.indices(v=True, s="store.size:desc")
+        print("\n" + indices)
+    except Exception as e:
+        logger.error("Error fetching index list: %s", e)
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fix OpenSearch indices blocked by disk watermarks")
     parser.add_argument(
@@ -51,9 +61,17 @@ def main() -> None:
         default="*",
         help="Index name or pattern to clear (default: * for all indices)",
     )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List all indices and their sizes",
+    )
     args = parser.parse_args()
     
-    clear_disk_block(args.index)
+    if args.list:
+        list_indices()
+    else:
+        clear_disk_block(args.index)
 
 if __name__ == "__main__":
     main()
