@@ -299,8 +299,9 @@ def _write_markdown_report(results: list[dict[str, Any]], output_path: Path) -> 
     lines = [
         "# Dedup Method Benchmark Results",
         "",
-        "| Method | Options | Docs | Groups | F1 | Precision | Recall | PR-AUC | Closed R@20 | Open R@50 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Method | Options | Docs | Groups | Best score threshold | F1 | Precision | Recall | "
+        "PR-AUC | Closed R@20 | Open R@50 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for result in sorted(results, key=_result_sort_key):
         options = json.dumps(result["options"], ensure_ascii=False, sort_keys=True)
@@ -309,7 +310,7 @@ def _write_markdown_report(results: list[dict[str, Any]], output_path: Path) -> 
         closed_rank = result["closed"].get("closed_rank", {})
         open_recall = result["open"].get("recall", {}) if not result["open"].get("skipped") else {}
         row_template = (
-            "| {method} | `{options}` | {docs} | {groups} | {f1:.3f} | "
+            "| {method} | `{options}` | {docs} | {groups} | {threshold:.3f} | {f1:.3f} | "
             "{precision:.3f} | {recall:.3f} | {pr_auc:.3f} | {closed_r20:.3f} | {open_r50:.3f} |"
         )
         lines.append(
@@ -318,6 +319,7 @@ def _write_markdown_report(results: list[dict[str, Any]], output_path: Path) -> 
                 options=options,
                 docs=result["corpus"]["doc_count"],
                 groups=result["corpus"]["positive_group_count"],
+                threshold=best["threshold"],
                 f1=best["f1"],
                 precision=best["precision"],
                 recall=best["recall"],
