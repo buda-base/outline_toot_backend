@@ -1,0 +1,97 @@
+{
+    "mappings": {
+        "properties": {
+            "mw_id": { "type": "keyword" },
+            "source_index": { "type": "keyword" },
+            "source_synced_at": { "type": "date" },
+            "text_bo": {
+                "type": "text",
+                "analyzer": "tibetan-lenient",
+                "fields": {
+                    "min_hash_lenient_3": {
+                        "type": "text",
+                        "analyzer": "tibetan-lenient-minhash-3"
+                    }
+                }
+            },
+            "text_length": { "type": "integer" }
+        }
+    },
+    "settings": {
+        "index": {
+            "similarity": {
+                "default": {
+                    "type": "BM25",
+                    "k1": 0.0
+                }
+            }
+        },
+        "analysis": {
+            "analyzer": {
+                "tibetan-lenient-minhash-3": {
+                    "tokenizer": "tibetan-default",
+                    "filter": [
+                        "tibetan-lenient",
+                        "tibetan-synonyms",
+                        "tibetan_stop_words_filter",
+                        "3_shingle",
+                        "tibetan_minhash_filter"
+                    ],
+                    "char_filter": ["tibetan-lenient"]
+                },
+                "tibetan-lenient": {
+                    "tokenizer": "tibetan-default",
+                    "filter": [
+                        "tibetan-lenient",
+                        "tibetan-synonyms",
+                        "tibetan_stop_words_filter"
+                    ],
+                    "char_filter": ["tibetan-lenient"]
+                }
+            },
+            "filter": {
+                "tibetan_minhash_filter": {
+                    "type": "min_hash",
+                    "hash_count": 1,
+                    "bucket_count": 512,
+                    "hash_set_size": 1,
+                    "with_rotation": true
+                },
+                "3_shingle": {
+                    "type": "shingle",
+                    "min_shingle_size": 3,
+                    "max_shingle_size": 3,
+                    "output_unigrams": false,
+                    "filler_token": ""
+                },
+                "tibetan-lenient": {
+                    "type": "tibetan",
+                    "remove_affixes": true,
+                    "normalize_paba": true
+                },
+                "tibetan_stop_words_filter": {
+                    "type": "stop",
+                    "ignore_case": false,
+                    "stopwords": ["འི", "འིས", "ཡིས"]
+                },
+                "tibetan-synonyms": {
+                    "type": "synonym_graph",
+                    "synonyms_path": "tibetan-synonyms-flattened.txt"
+                }
+            },
+            "char_filter": {
+                "tibetan-lenient": {
+                    "type": "tibetan",
+                    "lenient": true
+                }
+            },
+            "tokenizer": {
+                "tibetan-default": {
+                    "type": "tibetan",
+                    "split_non_standard": true,
+                    "keep_shad": false
+                }
+            }
+        }
+    }
+}
